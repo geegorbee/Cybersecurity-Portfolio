@@ -1,7 +1,7 @@
 # AWS Security Analysis - S3cret Santa
 
 **Lab:** TryHackMe Advent of Cyber 2024 Day 23  
-**Completed:** December 23, 2024 | Documented: January 9, 2026  
+**Completed:** December 2025 | Documented: January 9, 2026  
 **Focus:** AWS IAM privilege enumeration, role assumption, and S3 security analysis
 
 ## Executive Summary
