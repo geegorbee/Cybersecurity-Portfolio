@@ -1,0 +1,11 @@
+evidence_id,timestamp,control_id,framework,evidence_type,source_system,description,status,collection_date,reviewer,notes
+CC6.1_20260116_230501,2026-01-16T23:05:01.708671,CC6.1,SOC2_Type2,access_review,AWS_IAM,"Quarterly user access review completed - 127 active users validated, 3 removed",collected,2026-01-16,,
+CC6.1_20260116_230501,2026-01-16T23:05:01.709231,CC6.1,SOC2_Type2,rbac_config,IAM_System,Role-based access control verified - least privilege principles enforced,collected,2026-01-16,,
+CC6.1_20260116_230501,2026-01-16T23:05:01.709248,CC6.1,SOC2_Type2,cloud_access,AWS_Connect,Agent access permissions validated for telephony system - 24 active users,collected,2026-01-16,,
+CC7.2_20260116_230501,2026-01-16T23:05:01.709467,CC7.2,SOC2_Type2,siem_config,Splunk,Security monitoring rules active - 47 detection rules configured for anomaly detection,collected,2026-01-16,,
+CC7.2_20260116_230501,2026-01-16T23:05:01.709494,CC7.2,SOC2_Type2,alert_metrics,Splunk,"Monthly alert summary - 234 alerts triggered, 12 investigated, 0 confirmed incidents",collected,2026-01-16,,
+CC7.2_20260116_230501,2026-01-16T23:05:01.709513,CC7.2,SOC2_Type2,cloud_monitoring,AWS_CloudWatch,AWS Connect call quality monitoring active - connectivity metrics tracked,collected,2026-01-16,,
+CC7.4_20260116_230501,2026-01-16T23:05:01.709533,CC7.4,SOC2_Type2,ir_procedures,IR_Documentation,Incident response playbook reviewed and updated - 8 runbooks validated,collected,2026-01-16,,
+CC7.4_20260116_230501,2026-01-16T23:05:01.709552,CC7.4,SOC2_Type2,incident_metrics,Ticketing_System,"Quarterly incident summary - 3 incidents detected, avg response time 45 minutes",collected,2026-01-16,,
+CC8.1_20260116_230501,2026-01-16T23:05:01.709709,CC8.1,SOC2_Type2,change_approvals,Change_Management,"Quarterly change review - 23 changes approved, all with testing validation",collected,2026-01-16,,
+CC9.1_20260116_230501,2026-01-16T23:05:01.709822,CC9.1,SOC2_Type2,risk_assessment,Risk_Register,"Annual risk assessment completed - 15 risks identified, 12 mitigated, 3 accepted",collected,2026-01-16,,
