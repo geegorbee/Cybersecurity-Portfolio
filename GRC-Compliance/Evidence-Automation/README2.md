@@ -1,3 +1,5 @@
+(This document continues from RAEDME.md in this folder)
+
 This structure enables:
 	∙	Programmatic filtering by control, framework, or date
 	∙	Audit trail with timestamps and source attribution
@@ -188,7 +190,10 @@ Related Projects:
 	∙	AWS Security Analysis - Cloud evidence sources
 
 Contact
-Author: Gerald BrownEmail: gerald.brown@alumni.utoronto.caLinkedIn: linkedin.com/in/gerald-brown-63168223aPortfolio: github.com/geegorbee/Cybersecurity-Portfolio
+Author: Gerald Brown
+Email: gerald.brown@alumni.utoronto.ca
+LinkedIn: linkedin.com/in/gerald-brown-63168223aPortfolio: 
+github.com/geegorbee/Cybersecurity-Portfolio
 
 Last Updated: January 2026
 
