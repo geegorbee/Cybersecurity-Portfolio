@@ -38,8 +38,6 @@ These certifications will be added upon completion:
 
 Google Cybersecurity Certificate
 
-ISC² Certified in Cybersecurity (CC)
-
 TryHackMe SOC Level 1
 
 CompTIA Security+
