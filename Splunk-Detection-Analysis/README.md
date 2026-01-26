@@ -12,8 +12,8 @@ Hands-on Splunk SIEM experience through TryHackMe's structured learning path, de
 
 ## Completed Labs
 1. **Splunk: The Basics** - https://github.com/geegorbee/Cybersecurity-Portfolio/tree/main/Splunk-Detection-Analysis/THM-Splunk-Basics
-2. **Splunk: Exploring SPL** - [Link to writeup]
-3. **Investigating with Splunk** - [Link to writeup]
+2. **Splunk: Exploring SPL** - [Link to writeup]  In Progress
+3. **Investigating with Splunk** - [Link to writeup] In Progress
 
 ## Sample Detection Rules
 - Brute Force Authentication Detection
