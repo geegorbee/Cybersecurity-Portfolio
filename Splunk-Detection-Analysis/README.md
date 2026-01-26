@@ -11,7 +11,7 @@ Hands-on Splunk SIEM experience through TryHackMe's structured learning path, de
 - Detection rule development
 
 ## Completed Labs
-1. **Splunk: The Basics** - [Link to writeup]
+1. **Splunk: The Basics** - https://github.com/geegorbee/Cybersecurity-Portfolio/tree/main/Splunk-Detection-Analysis/THM-Splunk-Basics
 2. **Splunk: Exploring SPL** - [Link to writeup]
 3. **Investigating with Splunk** - [Link to writeup]
 
