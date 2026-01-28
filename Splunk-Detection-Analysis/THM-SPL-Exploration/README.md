@@ -5,7 +5,8 @@ Overview
 I completed TryHackMe’s “Splunk: Exploring SPL” room to build practical Search Processing Language (SPL) query skills - the core query language used by SOC analysts to investigate security events in Splunk SIEM. This lab covered filtering techniques, transformational commands, and data manipulation essential for alert triage and threat hunting.
 SPL is what makes Splunk powerful for security operations. Understanding how to construct effective queries, chain commands together, and extract meaningful insights from log data is fundamental to SOC analyst work. This room built directly on the architecture fundamentals from “Splunk: The Basics” and put that knowledge into practical application.
 
-Learning Objectives
+Learning Objectives:
+
 Through this lab, I gained hands-on experience with:
 ∙ Search Processing Language (SPL) Fundamentals: Understanding how to construct queries using operators, filters, and commands
 ∙ Filtering Techniques: Narrowing search results to focus on relevant security events
@@ -14,6 +15,7 @@ Through this lab, I gained hands-on experience with:
 ∙ Statistical Analysis: Using stats commands to identify patterns and anomalies
 
 Key SPL Components
+
 1. Search Field Operators
 I learned how to use comparison operators, boolean logic, and wildcards to filter security events - essential skills for alert triage.
 Comparison Operators:
@@ -35,6 +37,7 @@ index=windowslogs DestinationIp=172.*
 
 This technique is valuable for investigating activity within specific network segments (e.g., all internal 172.x.x.x addresses) or identifying lateral movement patterns during incident response.
 Connection to My Experience: These filtering techniques directly apply to the triage work I performed at CRA - identifying anomalous access patterns, filtering out legitimate system activity, and focusing investigations on suspicious user behavior.
+
 
 2. Filtering Commands
 I practiced SPL commands that refine search results for focused investigation:
@@ -58,6 +61,7 @@ rename - Improving Clarity:
 index=windowslogs | fields + host + User + SourceIp | rename User as Employees
 
 This command improves report readability by renaming generic field names to more descriptive ones - useful when presenting findings to management or creating dashboards.
+
 
 3. Structuring Search Results
 I learned commands that organize investigation results for analysis:
@@ -129,18 +133,22 @@ Time-series charts show how activity changes over time - critical for identifyin
 
 Practical Investigation Workflow
 Through these exercises, I developed a systematic approach to log investigation:
+
 1. Broad Search → Narrow Focus:
 ∙ Start with index and basic criteria (index=windowslogs)
 ∙ Apply filters to remove noise (AccountName!=SYSTEM)
 ∙ Add conditions to focus on specific activity (AND SourceIp=172.*)
+
 2. Structure the Data:
 ∙ Create tables with relevant fields (| table _time User SourceIp DestinationIp)
 ∙ Sort by relevant criteria (| sort _time)
 ∙ Limit to manageable results (| head 20)
+
 3. Identify Patterns:
 ∙ Find most/least common occurrences (| top / | rare)
 ∙ Apply statistical analysis (| stats count by User)
 ∙ Visualize trends (| timechart count by Hostname)
+
 4. Document Findings:
 ∙ Rename fields for clarity (| rename User as AccountName)
 ∙ Create focused views for reporting (| fields + _time + User + EventID)
@@ -203,7 +211,6 @@ My goal is to demonstrate not just theoretical SPL knowledge, but practical inve
 Resources
 ∙ TryHackMe Room: Splunk: Exploring SPL
 ∙ Splunk SPL Documentation: Search Reference
-∙ My GitHub Portfolio: Splunk Detection & Analysis
 
 STATUS: COMPLETED ✅
 Previous Room: Splunk: The Basics
