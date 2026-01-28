@@ -1,6 +1,6 @@
 MITRE ATT&CK FRAMEWORK - THREAT INTELLIGENCE FOUNDATION
 
-Overview
+Overview:
 I completed TryHackMe’s comprehensive MITRE framework room to build foundational knowledge of industry-standard threat intelligence frameworks and methodologies. This training covered the MITRE ATT&CK® framework, Cyber Analytics Repository (CAR), D3FEND, and related tools - all critical resources for threat intelligence analysts, SOC operations, and security researchers.
 MITRE’s frameworks provide the common language and structured approach that threat intelligence professionals use to analyze adversary behavior, develop detection strategies, and communicate security findings across organizations. Understanding these frameworks is essential for translating raw threat data into actionable intelligence.
 
