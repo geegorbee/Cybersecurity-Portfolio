@@ -265,7 +265,7 @@ index=main source="*Sysmon*" EventCode=3
 ## Contact & Additional Work
 
 **GitHub Portfolio:** [Cybersecurity-Portfolio](https://github.com/geegorbee/Cybersecurity-Portfolio)  
-**LinkedIn:** [Your LinkedIn Profile]
+**LinkedIn:** [Your LinkedIn Profile] www.linkedin.com/in/gerald-brown-63168223a
 
 *This portfolio represents hands-on technical work completed through structured lab environments. All investigations follow responsible disclosure and ethical hacking principles.*
 
