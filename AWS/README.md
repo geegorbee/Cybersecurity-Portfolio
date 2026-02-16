@@ -9,7 +9,7 @@ This section documents hands-on AWS security work demonstrating practical unders
 ## Completed Projects
 
 ### 🔒 S3cret Santa - IAM Privilege Enumeration & Role Assumption
-**Completed:** December 2024 | **Lab:** TryHackMe Advent of Cyber Day 23
+**Completed:** December 2025 | **Lab:** TryHackMe Advent of Cyber Day 23
 
 Performed comprehensive AWS security analysis demonstrating privilege escalation through IAM role assumption. Documented complete attack chain from initial credential compromise through data exfiltration, identified 6 critical control gaps, and provided GRC-focused remediation recommendations.
 
