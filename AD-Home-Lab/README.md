@@ -14,7 +14,10 @@ Completed Microsoft MD-100 learning modules as foundation for Active Directory c
 - **Configure networking on Windows clients** - TCP/IP, DNS, DHCP, network troubleshooting
 - **Troubleshoot the Windows client operating system and apps** - Diagnostic tools, systematic troubleshooting, remediation workflows
 
-**Microsoft Learn completion certificates:** [Add links when available]
+**Microsoft Learn completion certificates:** 
+https://learn.microsoft.com/en-us/training/modules/monitor-troubleshoot-windows-client-performance/8-summary#completion
+
+
 
 -----
 
