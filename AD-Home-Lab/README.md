@@ -16,7 +16,7 @@ Completed Microsoft MD-100 learning modules as foundation for Active Directory c
 
 **Microsoft Learn completion certificates:** 
 https://learn.microsoft.com/en-us/training/modules/monitor-troubleshoot-windows-client-performance/8-summary#completion
-
+https://learn.microsoft.com/en-us/training/modules/employ-remote-management/8-summary#completion
 
 
 -----
