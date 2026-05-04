@@ -1,755 +1,291 @@
-# Active Directory Fundamentals - Enterprise Identity Infrastructure
+# Active Directory Fundamentals
 
-## Overview
+This document covers the theory that frames the rest of the lab — the architecture and authentication protocols that the build sections ([02](02-domain-controller.md) – [05](05-powershell-automation.md)) implement, and the security context that makes those implementations relevant to SOC analyst work.
 
-I completed comprehensive hands-on training in Active Directory (AD), the backbone of enterprise identity and access management used by virtually every Windows-based organization worldwide. This training provided practical experience configuring domain controllers, managing users and computers, implementing Group Policy security controls, and understanding authentication protocols - all core components of the Identity domain where I have 10+ years operational experience.
-
-While my federal government role provided deep operational knowledge of identity lifecycle management, authentication workflows, and access control enforcement, this training formalized my understanding of the underlying Active Directory infrastructure that powers those operations. This combination of hands-on technical AD configuration experience and extensive real-world IAM operations positions me to bridge the gap between identity administration and identity security - a critical capability for SOC analysts investigating authentication-based attacks and lateral movement.
-
-**Note:** This Active Directory foundation integrates with my ongoing AD Home Lab project where I'm implementing enterprise security controls including tiered administrative models, Group Policy hardening, and identity threat detection scenarios.
+The build documents focus on *what was configured*. This one focuses on *why those configurations matter*, particularly from the perspective of an analyst investigating authentication-based attacks, lateral movement, or privilege escalation in a Windows environment.
 
 ---
 
-## Learning Objectives
+## Career framing
 
-Through this hands-on lab, I developed capabilities in:
+This lab sits alongside ten years of operational identity and access management (IAM) experience in a federal government environment — daily user lifecycle work, authentication troubleshooting, access control enforcement across roughly 100 user accounts. That operational depth provided the *what does identity work look like in production* context. What it didn't provide was hands-on configuration of the underlying AD infrastructure that powered those operations.
 
-**Active Directory Architecture:**
-- Understanding Windows domains and Domain Controller roles
-- Distinguishing between users, groups, machines, and organizational units
-- Designing OU structures that mirror business organization
-- Managing security principals and authentication workflows
-
-**Identity Management Operations:**
-- Creating and managing user accounts across departments
-- Implementing security groups for access control
-- Delegating administrative privileges following least-privilege principles
-- Organizing computer objects (workstations, servers, domain controllers)
-
-**Group Policy Implementation:**
-- Creating Group Policy Objects (GPOs) for security baseline enforcement
-- Linking GPOs to organizational units for targeted policy deployment
-- Configuring computer and user policies independently
-- Understanding GPO inheritance and security filtering
-
-**Authentication Protocols:**
-- Deep-dive into Kerberos ticket-based authentication (TGT, TGS, KDC)
-- Understanding NetNTLM challenge-response mechanism
-- Recognizing authentication security implications
-- Identifying opportunities for credential theft and attack
-
-**Enterprise Architecture:**
-- Designing multi-domain environments using trees and forests
-- Implementing trust relationships for cross-domain resource access
-- Distinguishing Domain Admins from Enterprise Admins
-- Planning scalable identity infrastructure for growing organizations
+This lab closes that gap. The combination — extensive operational IAM experience plus hands-on AD technical configuration — is the foundation for transitioning into identity-focused security operations roles, where the same authentication mechanisms that legitimate users rely on are exactly what attackers abuse.
 
 ---
 
-## Active Directory Core Components
+## Security principals
 
-### Security Principals: Users, Groups, and Machines
+Active Directory manages three types of objects that can authenticate and be granted privileges. Each has distinct properties and a distinct attack surface.
 
-Active Directory manages three primary types of security principals - objects that can be authenticated and granted privileges:
+### Users
 
-**Users:**
+The most common AD object. Two functional sub-types:
 
-Security principals representing:
-- **People:** Employees requiring network access for daily work
-- **Services:** Service accounts for IIS, MSSQL, applications (limited privileges)
+- **People accounts** — employees and contractors who log in interactively
+- **Service accounts** — used by applications (IIS, SQL Server, scheduled tasks) to authenticate non-interactively
 
-Users are the most common AD object and the primary target for authentication-based attacks. Understanding user lifecycle (creation → modification → disablement → deletion) is critical for both administration and security operations.
+The lifecycle is the same for both: created, modified over time, disabled, eventually deleted. The security implication is also the same: every user account is a potential authentication target. Compromising any account gives an attacker a foothold; compromising a privileged account gives them substantially more.
 
-**Connection to My Experience:**
-My 10 years managing identity operations involved daily user lifecycle management across 100+ accounts. This training formalized the underlying AD mechanisms I've been executing operationally.
+### Machine accounts
 
-**Machines:**
+Every computer joining a domain receives a machine account, named with the computer name plus a dollar sign (`DC01$`, `WORKSTATION01$`). These accounts are full security principals — they authenticate, they hold privileges, they appear in event logs.
 
-Every computer joining an AD domain receives a machine account:
-- Machine accounts are security principals with domain authentication capability
-- Named with computer name + dollar sign (e.g., `DC01$`, `WORKSTATION05$`)
-- Passwords automatically rotate (120 random characters)
-- Local administrators on assigned computers only
+A few properties make them notable from a security perspective:
 
-**Security Implications:**
-Machine accounts are often overlooked in security operations, but compromising a machine account enables:
-- Pass-the-hash attacks using machine credentials
-- Lateral movement to systems where machine has local admin
-- Kerberos silver ticket attacks if service password known
+- Their passwords are 120 random characters and rotate automatically every 30 days
+- They have local administrator rights on their assigned computer (and only their assigned computer)
+- They're often overlooked in security monitoring because they're "just computers"
 
-**Groups:**
+Compromising a machine account enables specific attack patterns: pass-the-hash using machine credentials, lateral movement to systems where the machine has admin rights, and (if the machine is a service host) silver ticket attacks against services running under that account.
 
-Collections of users and/or machines for access control:
-- Enable bulk permission assignment (file shares, printers, applications)
-- Can contain users, machines, and nested groups
-- Also security principals (groups can be granted privileges)
+### Groups
 
-**Critical Default Groups:**
+Collections of users, computers, or other groups, used for bulk permission assignment. A user can belong to many groups; group membership is the primary mechanism for resource access in AD.
 
-| Group | Privilege Scope |
-|-------|----------------|
-| **Domain Admins** | Full domain control including all computers and DCs |
-| **Enterprise Admins** | Administrative control across entire forest |
-| **Server Operators** | Can administer DCs but not modify admin groups |
-| **Backup Operators** | Access any file (ignoring permissions) for backup |
-| **Account Operators** | Create/modify user accounts in domain |
-| **Domain Users** | All users in domain (default membership) |
-| **Domain Computers** | All computers in domain |
+Several built-in groups carry significant default privileges:
 
-**Attack Surface Awareness:**
-- Domain Admins and Enterprise Admins are primary targets (credential theft = domain compromise)
-- Backup Operators can access any file - valuable for data exfiltration
-- Account Operators can create backdoor accounts for persistence
+| Group | Privilege scope | Why it matters to security |
+|-------|----------------|---------------------------|
+| **Domain Admins** | Full administrative control over every computer in the domain | The primary credential-theft target — compromise = domain ownership |
+| **Enterprise Admins** | Administrative control across the entire forest | Higher than Domain Admins; multi-domain attack pivot |
+| **Server Operators** | Can administer domain controllers but not modify admin groups | Often overlooked; sufficient to weaken DC security |
+| **Backup Operators** | Can read any file regardless of NTFS permissions (for backup purposes) | Valuable for data exfiltration; bypasses ACLs |
+| **Account Operators** | Can create and modify user accounts in the domain | Sufficient to create persistent backdoor accounts |
+| **Domain Users** | Default group containing every user account | Membership is non-privileged but useful for enumeration |
 
-### Organizational Units (OUs)
-
-Container objects that organize AD for policy deployment:
-
-**OU Structure Design:**
-
-Best practice mirrors business organization:
-```
-Domain: thm.local
-├── Domain Controllers (default)
-├── Computers (default - to be reorganized)
-├── Users (default - legacy)
-├── Workstations (custom - user PCs)
-├── Servers (custom - infrastructure)
-└── Departments (custom OU structure):
-    ├── IT
-    ├── Management
-    ├── Marketing
-    ├── Sales
-    └── R&D
-```
-
-**Key OU Principles:**
-- Users can only belong to ONE OU (no dual membership)
-- OUs enable targeted Group Policy deployment
-- Child OUs inherit parent OU policies (unless blocked)
-- Used for administrative delegation (department-level admin rights)
-
-**OUs vs Security Groups - Critical Distinction:**
-
-| Organizational Units | Security Groups |
-|---------------------|-----------------|
-| Apply policies (GPOs) | Grant resource access |
-| User in ONE OU only | User in MANY groups |
-| Hierarchy-based | Membership-based |
-| For configuration management | For permission management |
-
-**Real-World Example from My Experience:**
-In federal operations, we had department-based OUs (similar to this lab) where authentication policies, password requirements, and MFA enforcement varied by organizational sensitivity. IT staff had stricter requirements than general users. This OU-based policy model enabled risk-appropriate security controls.
+The principle: **default group membership matters as much as explicit grants.** A user who is "just" a member of Backup Operators has effective access to every file in the environment, even though no individual file ACL says so.
 
 ---
 
-## Practical Identity Administration
+## Organizational units and groups (briefly)
 
-### User Lifecycle Management
+The mechanics of OUs and security groups are documented in [03 — Identity Structure](03-identity-structure.md). The security-relevant summary is short:
 
-**Hands-On Exercise: Organizational Restructuring**
+- **OUs** determine what policies apply (via GPO linkage) and who can administer subsets of the directory (via delegation). They define the *administrative blast radius* — what an admin scoped to a particular OU can affect.
+- **Security groups** determine what resources a user can reach. They define the *access blast radius* — what data and systems a compromised account can reach.
 
-Scenario: Business reorganization requires AD changes to match new org chart:
-- Department closure (remove entire OU and contained users)
-- New employees hired (create user accounts in department OUs)
-- Employees transferred (move between OUs or delete/recreate)
-
-**Deletion Protection:**
-By default, OUs have accidental deletion protection enabled. To delete:
-1. Enable "Advanced Features" in View menu
-2. Right-click OU → Properties → Object tab
-3. Uncheck "Protect object from accidental deletion"
-4. Confirm deletion (cascades to all child objects)
-
-**Security Consideration:**
-Deleted user accounts should be documented as part of offboarding procedures. Attackers may create accounts with names similar to recently deleted users to evade detection ("John.Smith" deleted, "JSmith" created by attacker).
-
-### Administrative Delegation
-
-**Principle of Least Privilege Implementation:**
-
-Rather than granting Domain Admin rights to helpdesk staff, delegate specific privileges:
-
-**Example: Password Reset Delegation**
-
-Scenario: Phillip (IT Support) needs password reset capability for Sales, Marketing, and Management departments, but NOT full domain admin rights.
-
-**Delegation Process:**
-1. Right-click target OU (e.g., Sales) → Delegate Control
-2. Select user: `phillip`
-3. Choose task: "Reset user passwords and force password change at next logon"
-4. Apply to OU
-
-**Result:** Phillip can reset passwords within delegated OUs using PowerShell:
-
-```powershell
-# Reset password for user Sophie
-Set-ADAccountPassword sophie -Reset -NewPassword (Read-Host -AsSecureString -Prompt 'New Password') -Verbose
-
-# Force password change at next logon
-Set-ADUser -ChangePasswordAtLogon $true -Identity sophie -Verbose
-```
-
-**Security Value:**
-- Reduces Domain Admin account usage (smaller attack surface)
-- Limits blast radius if delegated account compromised
-- Enables audit trail of who reset which passwords
-- Implements separation of duties
-
-**Connection to My Experience:**
-This is exactly how we operated in federal environment - Team Leads had delegated password reset authority within their organizational boundaries, but not domain-wide admin rights. This training formalized the AD mechanism behind those delegated privileges.
+Healthy directories keep these two boundaries aligned with business reality. Compromised directories drift apart: users with stale group memberships from old roles, OU structures that no longer match the org chart, and delegated admins who outlive the projects that justified their access.
 
 ---
 
-## Group Policy Security Implementation
+## Authentication protocols
 
-### Group Policy Objects (GPOs)
+Understanding Kerberos and NetNTLM is the single most useful technical skill for analyzing authentication-based attacks. Both protocols generate Windows event logs that SIEM platforms ingest; both have specific attack patterns that are only detectable if the analyst understands the underlying flow.
 
-**What GPOs Provide:**
+### Kerberos: ticket-based authentication
 
-Centralized configuration management across domain:
-- Security baselines (password policies, account lockout)
-- Desktop restrictions (Control Panel access, USB blocking)
-- Software deployment and configuration
-- Audit policy enforcement
-- Startup/shutdown scripts
+Kerberos authenticates users to services without ever transmitting the user's password (or its hash) across the network. It does this through a three-phase ticket exchange involving the **Key Distribution Center (KDC)** — a service running on every domain controller.
 
-**GPO Structure:**
-
-Each GPO contains two sections:
-- **Computer Configuration:** Applies to machines (regardless of logged-in user)
-- **User Configuration:** Applies to users (regardless of which machine they use)
-
-**GPO Application Workflow:**
-
-1. Create GPO under "Group Policy Objects"
-2. Configure settings in GPO Editor
-3. Link GPO to target OU(s)
-4. GPO propagates via SYSVOL share on Domain Controllers
-5. Clients sync GPOs periodically (max 2 hours) or via `gpupdate /force`
-
-### Hands-On GPO Implementation
-
-**Scenario 1: Restrict Control Panel Access**
-
-**Business Requirement:** Only IT department should access Control Panel on domain computers. Sales, Marketing, and Management users should be restricted.
-
-**GPO Configuration:**
-- GPO Name: `Restrict Control Panel Access`
-- Setting: `User Configuration → Policies → Administrative Templates → Control Panel`
-- Policy: "Prohibit access to Control Panel and PC settings" = **Enabled**
-- Linked to: Sales OU, Marketing OU, Management OU (NOT linked to IT OU)
-
-**Result:** Users in linked OUs receive "This operation has been cancelled due to restrictions in effect" when attempting Control Panel access.
-
-**Security Rationale:**
-- Prevents non-IT users from modifying system settings
-- Reduces risk of misconfiguration or security control bypass
-- Enforces separation of duties (system configuration = IT only)
-
-**Scenario 2: Automatic Screen Lock**
-
-**Business Requirement:** Workstations and servers must auto-lock after 5 minutes inactivity to prevent session hijacking.
-
-**GPO Configuration:**
-- GPO Name: `Auto Lock Screen`
-- Setting: `Computer Configuration → Policies → Windows Settings → Security Settings → Local Policies → Security Options`
-- Policy: "Interactive logon: Machine inactivity limit" = **300 seconds**
-- Linked to: Root domain (`thm.local`) for inheritance across all child OUs
-
-**Design Decision:**
-Link to root domain rather than individual OUs because:
-- Applies to ALL computers universally (consistent security baseline)
-- OUs containing only users ignore Computer Configuration (no wasted processing)
-- Simpler management (one GPO vs. multiple duplicate GPOs)
-
-**Security Value:**
-- Mitigates "clean desk" policy violations (users leaving sessions active)
-- Prevents unauthorized access to unattended workstations
-- Compliance requirement for many regulatory frameworks (PCI-DSS, HIPAA)
-
-### GPO Security Filtering
-
-**Advanced Targeting:**
-
-Beyond OU-based GPO application, security filtering enables:
-- Apply GPO only to specific security groups
-- Exclude specific users/computers from OU-linked GPO
-- Combine OU structure with group membership for fine-grained control
-
-**Default:** GPOs apply to "Authenticated Users" (everyone in linked OU)
-
-**Use Case Example:**
-- Link GPO to entire IT OU
-- Security filter to exclude "Domain Admins" group
-- Result: IT staff affected except Domain Admins
-
----
-
-## Authentication Protocols Deep Dive
-
-### Kerberos: Ticket-Based Authentication
-
-**Why Kerberos Matters for Security Operations:**
-
-Understanding Kerberos is critical for:
-- Detecting credential theft attacks (Golden Ticket, Silver Ticket)
-- Investigating lateral movement (pass-the-ticket attacks)
-- Analyzing authentication logs in SIEM platforms
-- Identifying Kerberoasting (service account password cracking)
-
-**Kerberos Authentication Flow:**
-
-**Phase 1: TGT Request (Initial Authentication)**
+**Phase 1 — TGT request (initial authentication):**
 
 ```
-User → Key Distribution Center (KDC):
-- Username + Timestamp (encrypted with user's password-derived key)
-
-KDC → User:
-- Ticket Granting Ticket (TGT) - encrypted with krbtgt account hash
-- Session Key (for future requests)
+User → KDC:    Username + timestamp encrypted with the user's password-derived key
+KDC → User:    Ticket Granting Ticket (TGT), encrypted with the krbtgt account hash
+               + a Session Key for future requests
 ```
 
-**Key Points:**
-- TGT proves user authenticated without re-sending password
-- TGT encrypted by `krbtgt` account (DC service account)
-- Compromising `krbtgt` hash = Golden Ticket attack (forged TGTs)
-- Session Key known to user and KDC (embedded in encrypted TGT)
+The TGT is the user's proof of having authenticated. It does *not* contain the password; it contains an encrypted assertion that the KDC verified the user's identity. The TGT is encrypted using the hash of a special account named `krbtgt`, which exists on every DC for exactly this purpose.
 
-**Phase 2: TGS Request (Service Access)**
+**Phase 2 — TGS request (service access):**
 
 ```
-User → KDC:
-- TGT (proving prior authentication)
-- Service Principal Name (SPN) - target service identifier
-- Timestamp encrypted with Session Key
-
-KDC → User:
-- Ticket Granting Service (TGS) - encrypted with service owner's hash
-- Service Session Key (for authenticating to service)
+User → KDC:    TGT + Service Principal Name (SPN) + timestamp encrypted with Session Key
+KDC → User:    Ticket Granting Service ticket (TGS), encrypted with the service owner's hash
+               + a Service Session Key
 ```
 
-**Key Points:**
-- TGS grants access to ONE specific service only
-- TGS encrypted with service account's password hash
-- Service Session Key proves legitimate TGS possession
-- Each service requires separate TGS
+A TGS grants access to one specific service. To access multiple services, a user requests multiple TGSs (each authenticated by the same TGT). The TGS is encrypted with the *service account's* password hash, which means the receiving service can decrypt it.
 
-**Phase 3: Service Authentication**
+**Phase 3 — service authentication:**
 
 ```
-User → Service:
-- TGS (encrypted with service account hash)
-- Authenticator (encrypted with Service Session Key)
-
-Service:
-- Decrypts TGS using its own password hash
-- Extracts Service Session Key
-- Validates authenticator
-- Grants access if valid
+User → Service:  TGS + authenticator encrypted with Service Session Key
+Service:         Decrypts TGS using its own password hash → extracts Service Session Key
+                 → validates authenticator → grants access
 ```
 
-**Attack Surface Analysis:**
+The service never contacts the KDC during this phase. It validates the user purely by demonstrating that the encrypted TGS could only have been issued by a KDC that knows both the user's identity and the service's password hash.
 
-| Attack | Target | Impact |
+### Kerberos attack surface
+
+The same mechanics that make Kerberos secure when keys are protected make it devastating when keys are stolen. Five attack patterns are the core of what SOC analysts look for:
+
+| Attack | Target | Effect |
 |--------|--------|--------|
-| **Golden Ticket** | `krbtgt` hash | Forge TGTs for any user (domain persistence) |
-| **Silver Ticket** | Service account hash | Forge TGS for specific service (stealth access) |
-| **Kerberoasting** | Service accounts | Crack weak service account passwords offline |
-| **Pass-the-Ticket** | Stolen TGT/TGS | Reuse valid tickets (no password needed) |
-| **Overpass-the-Hash** | User NTLM hash | Request TGT using hash instead of password |
+| **Golden Ticket** | `krbtgt` account hash | Forge TGTs for any user, including non-existent accounts; persistent domain compromise |
+| **Silver Ticket** | A specific service account hash | Forge TGSs for that one service; stealthy because no KDC interaction is required |
+| **Kerberoasting** | Service accounts with weak passwords | Request TGSs for service accounts, crack their password hashes offline |
+| **Pass-the-Ticket** | A stolen TGT or TGS | Reuse a valid ticket on another machine without needing the user's password |
+| **Overpass-the-Hash** | A user's NTLM hash | Use the hash to request a Kerberos TGT, bridging from NTLM compromise to Kerberos access |
 
-**Connection to My Splunk Investigation:**
+The detection patterns for each of these attacks live in Windows Security event logs — primarily Event ID 4768 (TGT request) and Event ID 4769 (TGS request). Analyzing those events meaningfully requires understanding what a *legitimate* TGT/TGS exchange looks like, which is what the protocol breakdown above provides.
 
-In my "Investigating with Splunk" project, I analyzed Windows Security Event IDs 4768 (TGT request) and 4769 (TGS request) to detect lateral movement. Understanding the Kerberos flow behind those events enables accurate threat detection vs. false positive determination.
+### NetNTLM: legacy challenge-response
 
-### NetNTLM: Legacy Challenge-Response
-
-**NetNTLM Authentication Flow:**
+NetNTLM predates Kerberos and remains in use for backward compatibility. The flow is simpler:
 
 ```
-1. Client → Server: Authentication request
-2. Server → Client: Random challenge value
-3. Client: Combines NTLM hash + challenge = response
-4. Client → Server: Challenge response
-5. Server → Domain Controller: Challenge + Response for validation
-6. DC: Recalculates expected response, compares with received
-7. DC → Server: Authentication result (success/failure)
-8. Server → Client: Access granted/denied
+1. Client → Server:           Authentication request
+2. Server → Client:           Random challenge value
+3. Client:                    Combines NTLM hash + challenge → response
+4. Client → Server:           Response
+5. Server → DC:               Forwards challenge + response for validation
+6. DC:                        Recalculates expected response, compares with received
+7. DC → Server:               Authentication result
+8. Server → Client:           Access granted/denied
 ```
 
-**Critical Security Implication:**
+NetNTLM has two security weaknesses worth knowing:
 
-Password/hash NEVER transmitted over network, BUT:
-- NetNTLM susceptible to relay attacks (pass challenge/response to another service)
-- Weaker than Kerberos (no mutual authentication)
-- Legacy protocol kept for backward compatibility only
+- **No mutual authentication.** The client trusts the server based on the network connection alone. There's no cryptographic proof that the server is the one the client intended to reach.
+- **Susceptible to relay.** An attacker who intercepts the challenge/response exchange can forward it to a different service, authenticating *as the victim* to a system the victim never intended to contact. This is the classic NTLM Relay attack.
 
-**Attack: NTLM Relay**
-
-Attacker intercepts challenge-response and replays to different service:
-1. Victim connects to attacker-controlled service
-2. Attacker relays challenge from legitimate service to victim
-3. Victim calculates response (thinking they're authenticating to attacker)
-4. Attacker forwards victim's response to legitimate service
-5. Legitimate service accepts (valid response to its challenge)
-6. Attacker gains access using victim's privileges
-
-**Mitigation:** SMB signing, LDAP signing, EPA (Extended Protection for Authentication)
+Mitigations exist — SMB signing, LDAP signing, Extended Protection for Authentication — but they're configuration-dependent and frequently disabled in environments that prioritize compatibility over hardening.
 
 ---
 
-## Enterprise Architecture: Trees, Forests, and Trusts
+## Enterprise architecture: trees, forests, and trusts
 
-### Scaling Beyond Single Domain
+Single-domain environments like the lab are the simplest case. Real enterprises often span multiple domains, organized into trees and forests, connected by trust relationships. The terminology is worth knowing because trust boundaries are also security boundaries — and because attackers explicitly enumerate and exploit trust relationships during lateral movement.
 
-**When to Use Multiple Domains:**
+### Trees
 
-Reasons for domain splitting:
-- **Geographic distribution:** Different countries with different regulations/policies
-- **Organizational autonomy:** Acquired companies maintaining separate IT infrastructure
-- **Administrative delegation:** Completely separate IT teams managing different business units
-- **Security isolation:** Highly sensitive environments requiring hard boundaries
-
-### Trees: Shared Namespace Hierarchy
-
-**Example: Geographic Expansion**
+A **tree** is a hierarchy of domains sharing a contiguous DNS namespace. Example:
 
 ```
-Root Domain: thm.local (corporate headquarters)
-├── uk.thm.local (United Kingdom operations)
-├── us.thm.local (United States operations)
-└── asia.thm.local (Asia-Pacific operations)
+thm.local                  ← root domain
+├── uk.thm.local           ← child domain (UK operations)
+├── us.thm.local           ← child domain (US operations)
+└── asia.thm.local         ← child domain (Asia-Pacific)
 ```
 
-**Tree Characteristics:**
-- Shared namespace (all domains end in `.thm.local`)
-- Automatic two-way trust relationships between parent-child domains
-- Each domain has its own Domain Controllers
-- Each domain has its own Domain Admins (domain-specific control)
-- Enterprise Admins have control across entire tree
+Each child domain has its own DCs, its own Domain Admins (scoped to that domain), and its own user/computer objects. **Enterprise Admins** is the only built-in group with control across the entire tree.
 
-**Administrative Model:**
+This structure is common in geographically distributed organizations where regional IT teams need administrative autonomy but the business operates as a single entity.
 
-| Role | Scope |
-|------|-------|
-| **Domain Admins (UK)** | Full control over `uk.thm.local` only |
-| **Domain Admins (US)** | Full control over `us.thm.local` only |
-| **Enterprise Admins** | Full control across all domains in tree |
+### Forests
 
-**Use Case:**
-UK IT team manages UK users/computers without ability to accidentally (or maliciously) affect US operations. Policies can differ (GDPR compliance in UK vs. other regulations in US).
-
-### Forests: Multiple Namespaces
-
-**Example: Company Merger**
+A **forest** is one or more trees sharing a common configuration and schema, but with potentially independent namespaces. Example: a company merger.
 
 ```
-Forest (merged organization):
-├── Tree 1: thm.local
+Forest
+├── Tree 1: thm.local       ← original company
 │   ├── uk.thm.local
 │   └── us.thm.local
-└── Tree 2: mht.local (acquired company)
+└── Tree 2: mht.local       ← acquired company
     ├── eu.mht.local
     └── asia.mht.local
 ```
 
-**Forest Characteristics:**
-- Multiple independent namespaces (`thm.local` and `mht.local`)
-- Separate domain trees managed independently
-- Trust relationships enable resource sharing across trees
-- Each tree maintains its own Enterprise Admins
+Forests are used when organizations need to share resources across completely separate namespaces — typically post-merger, or in cases where regulatory requirements demand strict naming separation.
 
-**Business Scenario:**
-THM Inc. acquires MHT Inc. Both companies maintain separate IT infrastructure but need occasional resource sharing (file servers, applications). Forest trust enables UK user at `thm.local` to access file server in `mht.local` with proper authorization.
+### Trust relationships
 
-### Trust Relationships
+Trusts are the mechanism that lets a user from one domain authenticate to resources in another. The directionality is counter-intuitive:
 
-**Trust Direction vs. Access Direction:**
+> **Trust direction is opposite of access direction.** If Domain A trusts Domain B, users in Domain B can be authorized in Domain A — *not the reverse*.
 
-CRITICAL CONCEPT: Trust direction is OPPOSITE of access direction.
-
-**One-Way Trust:**
 ```
 Domain A ----trusts----> Domain B
 
-Meaning: 
-- Domain A trusts Domain B's authentication
-- Users in Domain B can be authorized in Domain A
-- Users in Domain A CANNOT access Domain B resources
+Result: B's users may access A's resources
+        A's users CANNOT access B's resources
 ```
 
-**Visual: "Trust flows backward, access flows forward"**
+A two-way trust (the default between domains in the same tree or forest) lets users from either side access resources on the other.
 
-**Two-Way Trust:**
-```
-Domain A <----trusts----> Domain B
+Three properties of trusts have direct security implications:
 
-Meaning:
-- Both domains trust each other's authentication
-- Users in both domains can be authorized in either domain
-- Default configuration for trees and forests
-```
-
-**Trust Does NOT Equal Access:**
-
-IMPORTANT: Trust enables authorization possibility, but doesn't grant access automatically.
-
-**Example:**
-- UK domain trusts US domain
-- US user `john.smith` can be AUTHORIZED on UK file server
-- But UK admin must explicitly grant `US\john.smith` file permissions
-- Trust provides authentication mechanism only
-
-### Security Implications of Trusts
-
-**Attack Surface Expansion:**
-
-Trusts create lateral movement opportunities:
-- Compromise low-privilege account in trusted domain
-- Enumerate trust relationships
-- Exploit weak permissions in trusting domain
-- Escalate privileges across domain boundary
-
-**Domain Trust Attacks:**
-- **SID History injection:** Add privileged SID to user crossing trust
-- **Foreign Security Principals:** Enumerate cross-domain group memberships
-- **Trust key compromise:** Forge inter-domain TGTs if trust key stolen
-
-**Defense:**
-- Implement Selective Authentication on trusts (not automatic access)
-- Monitor cross-domain authentication events (Event ID 4769 with trust TGS)
-- Limit Domain Admin privileges to single domain (use separate accounts across domains)
+1. **Trust enables authorization, not access.** A trust lets `B\Alice` *authenticate* to a server in domain A. Whether she can actually open files on that server still depends on the file's ACL granting her permissions.
+2. **Trusts are attack pivots.** Once an attacker compromises a low-privilege account in one domain, trust enumeration reveals which other domains they can pivot into.
+3. **SID History injection** — the technique of adding a privileged SID from one domain to a user crossing a trust — is a documented attack pattern when trusts are configured without selective authentication.
 
 ---
 
-## Integration with Security Operations
+## Integration with security operations
 
-### Connecting AD Knowledge to SOC Investigations
+The point of building a deep theoretical understanding of AD isn't to administer AD better (though it helps). It's to recognize the difference between legitimate AD activity and malicious activity in the same logs.
 
-**Scenario 1: Detecting Lateral Movement**
+### Detecting lateral movement
 
-**Splunk Alert:** Multiple authentication attempts from single source to multiple destinations on port 445 (SMB).
+A SIEM alert: *"Multiple authentication attempts from a single source to multiple destinations on port 445 (SMB)."*
 
-**Investigation Workflow with AD Knowledge:**
+Without AD context, this alert is ambiguous — it could be a domain admin running a legitimate maintenance script, a backup process, or an attacker spreading laterally. With AD context, the analyst can ask:
 
-1. **Identify source account type:**
-   - User account? (potential credential theft)
-   - Machine account? (could be legitimate or compromised workstation)
+- **What kind of account is the source?** A user account behaving this way is suspicious; a machine account behaving this way could be either a malware-infected workstation or a legitimate service.
+- **What privileges does it hold?** Membership in Domain Admins makes the account a high-value target *and* makes legitimate fan-out activity more plausible. Service accounts with broad SMB rights are common Kerberoasting victims.
+- **What protocol is in use?** Kerberos events (4768, 4769) versus NTLM events (4776) suggest different attack patterns — Kerberos lateral movement often involves stolen tickets; NTLM lateral movement often involves relay attacks.
 
-2. **Check account privileges:**
-   - Member of Domain Admins? (high-value target confirmation)
-   - Service account? (possible Kerberoasting victim)
+The same log entries support different conclusions depending on the directory context the analyst can apply to them.
 
-3. **Analyze authentication protocol:**
-   - Kerberos (Event ID 4768, 4769): Check for suspicious SPNs
-   - NTLM (Event ID 4776): Possible NTLM relay attack
+### Detecting privilege escalation
 
-4. **Review Group Policy application:**
-   - Should this user access these systems? (GPO violations)
-   - Workstation restriction policies in place? (policy bypass attempt)
+A SIEM alert: *"User account added to a privileged group."*
 
-**AD-Informed Detection:**
-Without AD knowledge: "Multiple SMB connections = maybe suspicious?"
-With AD knowledge: "Service account authenticating to workstations after hours using NTLM = probable credential theft + relay attack"
+The follow-up questions an AD-literate analyst asks:
 
-**Scenario 2: Privilege Escalation Detection**
+- **Which group?** Domain Admins is critical; Account Operators is a backdoor-creation enabler; Backup Operators is a data-exfiltration enabler. Each demands different urgency.
+- **Who made the change?** A change made by a Domain Admin account is plausible (verify the admin); a change made by a regular user account is structurally impossible (vulnerability or compromise) and warrants immediate investigation.
+- **From what system?** A change originating on a domain controller via standard administrative tooling is expected. A change originating on a workstation via remote admin tools should be verified. A change originating from outside the domain is an external attack.
+- **At what time?** Business hours, with calendar context for the admin, suggests legitimate work. 3 AM on a Sunday with no maintenance window scheduled does not.
 
-**SIEM Alert:** User account added to privileged group.
+### Detecting Golden Ticket attacks
 
-**Investigation with AD Context:**
-
-1. **Which group?**
-   - Domain Admins = critical (full domain control)
-   - Account Operators = concerning (can create backdoor accounts)
-   - Backup Operators = worrying (can access any file)
-
-2. **Who made the change?**
-   - Domain Admin account? (verify legitimate action)
-   - Regular user account? (impossible - escalation vulnerability)
-   - Machine account? (very suspicious - malware/exploit)
-
-3. **From which system?**
-   - Domain Controller? (administrative console = expected)
-   - Workstation? (remote admin tools = verify legitimacy)
-   - Non-domain system? (external attack vector)
-
-4. **Time and context:**
-   - During business hours? (more likely legitimate)
-   - 3 AM on Sunday? (suspicious - compromised admin account?)
-
-**Scenario 3: Golden Ticket Detection**
-
-**Indicators requiring AD authentication knowledge:**
+The most-cited Kerberos attack, and one that requires AD knowledge to detect:
 
 ```
-Event ID 4769 (TGS Request) with:
-- Account: any_username
+Event ID 4769 (TGS request) appears with:
+- Account: any_username (often a non-existent account)
 - Service: any_service
-- Ticket encryption: RC4 (unusual - modern Kerberos uses AES)
-- Source: does not match prior TGT Event ID 4768 for this user
+- Ticket encryption: RC4 (modern Kerberos uses AES)
+- No corresponding Event ID 4768 (TGT request) for this user
 ```
 
-**Why this indicates Golden Ticket:**
-- Attacker forged TGT using stolen `krbtgt` hash
-- Forged ticket used to request TGS
-- No prior authentic TGT request (attacker bypassed KDC authentication)
-- Older encryption type (attacker using simple hash, not full Kerberos)
+The forged TGT was created offline using a stolen `krbtgt` hash; the attacker then used it to request a TGS. The KDC has no record of issuing a TGT to this user, and the older RC4 encryption is the giveaway that the ticket was minted by tooling rather than by Microsoft's modern AES-by-default Kerberos implementation.
 
-**Without AD/Kerberos knowledge:** Undetectable in logs.
-**With AD/Kerberos knowledge:** Clear attack pattern.
+Without AD/Kerberos knowledge, this pattern is invisible in logs. With it, it's a textbook indicator.
 
-### MISP Integration: AD-Specific IOCs
+### MITRE ATT&CK mapping
 
-From my MISP training, AD-related indicators to share:
+The attacks above all map to specific techniques in the MITRE ATT&CK framework — the standard taxonomy for adversary behaviors that SOC tooling, threat intelligence platforms, and detection engineering teams use to organize their work:
 
-**Network Indicators:**
-- IP addresses of rogue Domain Controllers
-- C2 infrastructure using port 88 (Kerberos) or 389 (LDAP) for blending
-
-**Account Indicators:**
-- Compromised service account names (Kerberoasting targets)
-- Backdoor account naming patterns (SVC_admin, backup_user)
-
-**Behavioral Indicators:**
-- Unusual SPN values (malicious Kerberos delegation)
-- Suspicious Group Policy modifications (persistence via GPO)
-
-**MITRE ATT&CK Mapping:**
-AD-specific techniques from my MITRE framework training:
-- T1558 (Steal or Forge Kerberos Tickets)
-- T1484 (Domain Policy Modification - GPO abuse)
-- T1069 (Permission Groups Discovery - recon)
-- T1087 (Account Discovery - enumeration)
+| Technique ID | Name | Relevance |
+|--------------|------|-----------|
+| **T1558** | Steal or Forge Kerberos Tickets | Golden Ticket, Silver Ticket, Kerberoasting |
+| **T1484** | Domain Policy Modification | GPO abuse for persistence or privilege escalation |
+| **T1069** | Permission Groups Discovery | Reconnaissance — enumerating Domain Admins, etc. |
+| **T1087** | Account Discovery | Reconnaissance — enumerating user accounts |
+| **T1550** | Use Alternate Authentication Material | Pass-the-Hash, Pass-the-Ticket, Overpass-the-Hash |
 
 ---
 
-## Connection to Active Directory Home Lab
+## Connection to the lab implementation
 
-**This TryHackMe training provides foundation for my ongoing AD Home Lab project:**
+The build documents in this repository implement the legitimate side of every mechanism above:
 
-**Phase 1 - Basic Implementation (MD-100 Certified):**
-- Domain Controller deployment ✅
-- OU structure design ✅
-- User/computer object management ✅
-- Group Policy basics ✅
+- The directory built in [02 — Domain Controller Setup](02-domain-controller.md) is the same kind of directory attackers enumerate during T1087 (Account Discovery).
+- The OUs and groups created in [03 — Identity Structure](03-identity-structure.md) are exactly the targets of T1069 (Permission Groups Discovery).
+- The GPOs deployed in [04 — Group Policy](04-group-policy.md) are the substrate that T1484 (Domain Policy Modification) abuses for persistence.
+- The PowerShell automation in [05 — PowerShell Automation](05-powershell-automation.md) uses the same `ActiveDirectory` module that attackers use for post-compromise enumeration.
 
-**Phase 2 - Security Hardening (In Progress):**
-- Tiered administrative model implementation
-- Privileged Access Workstation (PAW) configuration
-- Advanced GPO security baselines
-- Audit policy for threat detection
-
-**Phase 3 - Attack & Defense Scenarios (Planned):**
-- Kerberoasting attack simulation and detection
-- Golden/Silver ticket attacks with SIEM correlation
-- NTLM relay attacks and mitigation verification
-- Lateral movement detection via authentication log analysis
-
-**Integration with Other Projects:**
-
-**With Splunk Analysis:**
-- AD generates authentication events (4624, 4625, 4768, 4769)
-- Splunk ingests and correlates AD logs
-- Detection rules leverage AD architecture knowledge
-
-**With Wireshark:**
-- Capture Kerberos traffic (port 88) for protocol analysis
-- Analyze LDAP queries (port 389) for enumeration detection
-- Inspect SMB authentication (NTLM vs. Kerberos)
-
-**With MITRE/MISP:**
-- Map observed AD attacks to ATT&CK techniques
-- Share compromised account IOCs via MISP
-- Document GPO-based persistence in threat intelligence
-
----
-
-## Key Takeaways
-
-**Technical Skills Developed:**
-- Active Directory architecture and component relationships
-- Identity lifecycle management (users, groups, machines)
-- Group Policy creation, linking, and troubleshooting
-- Kerberos and NetNTLM authentication protocol internals
-- Enterprise AD design (trees, forests, trusts)
-- Administrative delegation and least-privilege implementation
-
-**Security Operations Capabilities:**
-- Recognizing authentication-based attacks through AD knowledge
-- Detecting privilege escalation via group membership monitoring
-- Investigating lateral movement using Kerberos ticket analysis
-- Identifying policy violations through GPO enforcement awareness
-- Understanding trust relationship attack surface
-
-**Operational Understanding:**
-- Why AD is the "backbone of corporate networks"
-- How centralized identity management scales across enterprise
-- Balance between administrative convenience and security isolation
-- Importance of OU structure for policy deployment
-- Critical role of Domain Controllers in security architecture
-
----
-
-## Connection to Identity Specialization
-
-**10 Years IAM Operations + AD Technical Foundation = Identity Security Expertise**
-
-**My Career Positioning:**
-
-**Before this training:**
-- Deep operational knowledge of identity workflows
-- Extensive authentication troubleshooting experience
-- Access control enforcement across 100+ users
-- But: Operational perspective without underlying AD technical depth
-
-**After this training:**
-- Formalized AD architecture and component understanding
-- Protocol-level authentication knowledge (Kerberos internals)
-- Group Policy security implementation capability
-- Attack surface awareness from attacker perspective
-
-**Result:** Can bridge identity administration and identity security - understanding both legitimate operations AND how attackers abuse those same mechanisms.
-
-**For SOC Analyst Roles:**
-
-This positions me to:
-- Investigate authentication-based attacks with deep context
-- Distinguish legitimate AD operations from malicious activity
-- Correlate authentication logs with AD infrastructure knowledge
-- Communicate findings using accurate AD terminology
-- Recommend remediation aligned with AD security best practices
-
-**For Identity-Focused Security Roles:**
-
-Demonstrates capability for:
-- IAM security architecture review
-- Privileged access management implementation
-- Authentication protocol security assessment
-- AD hardening and security baseline development
+The lab's Phase 3 (planned) extends this directly: configuring the same environment to *generate* authentication-based attack traces (Kerberoasting, Golden Ticket simulations) and correlating them with detection rules in a SIEM. That work depends on having a working domain to attack — which is what the build documents have produced.
 
 ---
 
 ## Resources
 
-- **TryHackMe Room:** Active Directory Basics
-- **Microsoft Documentation:** Active Directory Domain Services Overview
-- **MITRE ATT&CK:** Active Directory specific techniques
-- **Related Training:** Active Directory Hardening (TryHackMe)
-- **Advanced Learning:** Compromising Active Directory module (TryHackMe)
+- TryHackMe room: *Active Directory Basics* — primary structured-learning source for the foundational content above
+- Microsoft documentation: *Active Directory Domain Services Overview*
+- MITRE ATT&CK framework: technique pages for T1558, T1484, T1069, T1087, T1550
+- Companion training: *Active Directory Hardening* (TryHackMe) — bridge into Phase 3 work
 
 ---
 
-## Status: FOUNDATION COMPLETE ✅
+## What this section demonstrates
 
-**Integration with AD Home Lab Project:** In Progress
-
-**Next Steps:**
-- Complete AD Hardening room (security baselines)
-- Implement tiered administration model in home lab
-- Document attack scenarios (Kerberoasting, Golden Ticket)
-- Correlate AD events with Splunk SIEM for detection
-
-This Active Directory foundation demonstrates enterprise identity infrastructure knowledge - essential capability for SOC analysts investigating authentication-based attacks, lateral movement, and privilege escalation in Windows environments. Combined with 10 years operational IAM experience, this positions me as an Identity domain specialist for security operations roles.
+- **AD theory and SOC operations are inseparable.** Authentication logs only become detection signals when the analyst understands the protocol producing them. Without that understanding, Event IDs 4768 and 4769 are noise; with it, they're attack telemetry.
+- **The same mechanisms that enable legitimate operations enable attacks.** Kerberos exists to authenticate users to services. The Golden Ticket attack exists because the same cryptographic primitive can be inverted with a stolen key. The defender's job is not to remove the mechanism but to monitor for inversion.
+- **Identity is the highest-leverage domain in security operations.** Network controls fail closed; identity controls fail open. A user who shouldn't have access usually still gets denied; an attacker with valid credentials usually gets through. Investing in identity expertise compounds across most categories of incident.
+- **Operational IAM experience and infrastructure-level understanding are complementary, not redundant.** Ten years of executing identity workflows builds intuition for what's normal. Hands-on AD configuration builds intuition for what's possible. The combination is what distinguishes an analyst who can investigate authentication incidents from one who can only escalate them.
 
