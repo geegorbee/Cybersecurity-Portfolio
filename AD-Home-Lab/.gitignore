@@ -1,1 +1,132 @@
+# =============================================================================
+# .gitignore for the AD Home Lab documentation repository
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Operating system metadata
+# -----------------------------------------------------------------------------
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS (in case you ever clone the repo on a Mac)
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# -----------------------------------------------------------------------------
+# Editor and IDE folders
+# -----------------------------------------------------------------------------
+# Visual Studio Code — uncomment .vscode/ if you want to share workspace
+# settings across collaborators; leave it ignored if VS Code config is personal
+.vscode/
+*.code-workspace
+
+# JetBrains (Rider, PyCharm, etc.)
+.idea/
+*.iml
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# -----------------------------------------------------------------------------
+# Virtualization artifacts (do not commit VM disks or exports to git)
+# -----------------------------------------------------------------------------
+# VirtualBox
+*.vdi
+*.vbox-prev
+*.vbox.bak
+Logs/
+
+# VMware
+*.vmdk
+*.vmx
+*.vmsd
+*.vmsn
+*.nvram
+
+# Hyper-V
+*.vhd
+*.vhdx
+*.avhd
+*.avhdx
+
+# Generic VM exports
+*.ova
+*.ovf
+
+# -----------------------------------------------------------------------------
+# Source archives (the original screenshot zips should not be committed)
+# -----------------------------------------------------------------------------
+TCM_*.zip
+*.7z
+*.rar
+
+# -----------------------------------------------------------------------------
+# Backup, temporary, and editor swap files
+# -----------------------------------------------------------------------------
+*.bak
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+~$*
+
+# -----------------------------------------------------------------------------
+# Logs and runtime output
+# -----------------------------------------------------------------------------
+*.log
+logs/
+
+# -----------------------------------------------------------------------------
+# PowerShell-specific
+# -----------------------------------------------------------------------------
+# PowerShell transcript files (if any scripts use Start-Transcript)
+PowerShell_transcript.*
+
+# Module cache
+.psmodulecache/
+
+# -----------------------------------------------------------------------------
+# Sensitive material (do not commit, ever)
+# -----------------------------------------------------------------------------
+# Anything that looks like credentials, keys, or environment-specific config
+*.pfx
+*.cer
+*.key
+*.pem
+secrets/
+.env
+.env.*
+
+# -----------------------------------------------------------------------------
+# What this repo SHOULD contain (NOT ignored — listed for reference only)
+# -----------------------------------------------------------------------------
+# README.md
+# docs/*.md
+# scripts/*.ps1
+# images/**/*.png
+# .gitignore
+# IMAGE_RENAMING_REFERENCE.md (optional — you may move this out of the repo
+#                              once renaming is done)
 
